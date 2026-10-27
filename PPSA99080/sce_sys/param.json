@@ -1,9 +1,11 @@
 {
   "titleId": "PPSA99080",
-  "contentId": "HP0000-PPSA99080_00-PBROWSERPS5STORE",
+  "contentId": "JP0000-PPSA99080_00-PBROWSER00000000",
   "titleName": "P-Browser",
-  "version": "1.00",
+  "version": "01.00",
+  "appType": "1",
   "category": "gd",
-  "appType": 1,
-  "shortTitle": "P-Browser"
+  "targetSystemVersion": "0x13600000",
+  "sdkVersion": "0x13600000",
+  "attribute": 0
 }

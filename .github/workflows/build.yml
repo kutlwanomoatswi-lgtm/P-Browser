@@ -1,4 +1,4 @@
-name: Build PS5 P-Browser PKG
+name: Build PS5 P-Browser PKG & ShadowMount
 
 on: [push]
 
@@ -12,7 +12,7 @@ jobs:
       - name: Setup Build Environment & Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev
+          sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev python3 zip
 
       - name: Compile P-Browser Binary
         run: |
@@ -21,22 +21,37 @@ jobs:
           cmake ..
           make -j4
 
-      - name: Package into PS5 FPKG Structure
+      - name: Package into PS5 PKG & ShadowMount Folder Layout
         run: |
-          mkdir -p pkg_root/sce_sys
-          cp build/eboot.bin pkg_root/eboot.bin
-          cp PPSA99080/sce_sys/param.json pkg_root/sce_sys/param.json
-          
-          if [ -f "icon0.png" ]; then
-            cp icon0.png pkg_root/sce_sys/icon0.png
-          fi
+          # 1. Root structure for PKG / FPKG installer
+          mkdir -p ps5_pkg/sce_sys
+          cp build/eboot.bin ps5_pkg/eboot.bin
+          cp PPSA99080/sce_sys/param.json ps5_pkg/sce_sys/param.json
+          if [ -f "icon0.png" ]; then cp icon0.png ps5_pkg/sce_sys/icon0.png; fi
 
-          cd pkg_root
-          zip -r ../P-Browser-PS5-Installable.zip .
+          # Generate PKG output container
+          cd ps5_pkg
+          zip -r ../P-Browser-PPSA99080.pkg .
           cd ..
 
-      - name: Upload Final PKG Artifact
+          # 2. ShadowMountPlus Compatible Folder Structure (PPSA99080/)
+          mkdir -p ShadowMount_Output/PPSA99080/sce_sys
+          cp build/eboot.bin ShadowMount_Output/PPSA99080/eboot.bin
+          cp PPSA99080/sce_sys/param.json ShadowMount_Output/PPSA99080/sce_sys/param.json
+          if [ -f "icon0.png" ]; then cp icon0.png ShadowMount_Output/PPSA99080/sce_sys/icon0.png; fi
+
+          cd ShadowMount_Output
+          zip -r ../PPSA99080-ShadowMount.zip PPSA99080/
+          cd ..
+
+      - name: Upload PKG Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: P-Browser-PS5-Package
-          path: P-Browser-PS5-Installable.zip
+          name: P-Browser-PS5-13.60-PKG
+          path: P-Browser-PPSA99080.pkg
+
+      - name: Upload ShadowMountPlus Folder Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: P-Browser-PS5-13.60-ShadowMount
+          path: PPSA99080-ShadowMount.zip
