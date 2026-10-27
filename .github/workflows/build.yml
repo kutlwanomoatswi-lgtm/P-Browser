@@ -14,6 +14,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev python3 zip
 
+      - name: Clone Dear ImGui
+        run: |
+          git clone --depth 1 --branch v1.91.5 https://github.com/ocornut/imgui.git third_party/imgui
+
       - name: Clean & Compile Binary
         run: |
           rm -rf build
@@ -23,14 +27,13 @@ jobs:
 
       - name: Prepare ShadowMountPlus & Staging Directory
         run: |
-          # Create ShadowMount structure for PPSA99080
           mkdir -p output/PPSA99080/sce_sys
           cp build/eboot.bin output/PPSA99080/eboot.bin
-          
+
           if [ -f "PPSA99080/sce_sys/param.json" ]; then
             cp PPSA99080/sce_sys/param.json output/PPSA99080/sce_sys/param.json
           fi
-          
+
           if [ -f "icon0.png" ]; then
             cp icon0.png output/PPSA99080/sce_sys/icon0.png
           fi
