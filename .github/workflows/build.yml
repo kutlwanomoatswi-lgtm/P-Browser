@@ -12,7 +12,12 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev python3 zip
+          sudo apt-get install -y cmake build-essential clang lld libsdl2-dev libsdl2-image-dev python3 zip git
+
+      - name: Setup Open-Source PS5 Payload SDK
+        run: |
+          git clone --recursive https://github.com/ps5-payload-dev/sdk.git ps5_sdk
+          echo "PS5_SDK_PATH=$(pwd)/ps5_sdk" >> $GITHUB_ENV
 
       - name: Clone Dear ImGui
         run: |
@@ -22,10 +27,10 @@ jobs:
         run: |
           rm -rf build
           mkdir build && cd build
-          cmake ..
+          cmake .. -DPS5_SDK_PATH=${{ env.PS5_SDK_PATH }}
           make -j4
 
-      - name: Prepare ShadowMountPlus & Staging Directory
+      - name: Prepare ShadowMountPlus Staging Directory
         run: |
           mkdir -p output/PPSA99080/sce_sys
           cp build/eboot.bin output/PPSA99080/eboot.bin

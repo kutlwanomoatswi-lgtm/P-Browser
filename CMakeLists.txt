@@ -11,6 +11,11 @@ include_directories(
     ${IMGUI_DIR}/backends
 )
 
+if(PS5_SDK_PATH)
+    message(STATUS "Building with PS5 SDK at: ${PS5_SDK_PATH}")
+    include_directories(${PS5_SDK_PATH}/include)
+endif()
+
 file(GLOB SOURCES "src/*.cpp")
 
 set(IMGUI_SOURCES
