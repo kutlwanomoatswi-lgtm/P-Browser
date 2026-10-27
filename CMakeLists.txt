@@ -8,6 +8,5 @@ file(GLOB SOURCES "src/*.cpp")
 
 add_executable(eboot.bin ${SOURCES})
 
-# Link SDL2 libraries for UI and input management
 find_package(SDL2 REQUIRED)
 target_link_libraries(eboot.bin PRIVATE SDL2::SDL2)

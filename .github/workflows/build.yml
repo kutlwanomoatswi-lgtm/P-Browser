@@ -1,4 +1,4 @@
-name: Build PS5 P-Browser PKG & ShadowMount
+name: Build PS5 P-Browser
 
 on: [push]
 
@@ -9,49 +9,38 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Build Environment & Dependencies
+      - name: Setup Build Environment
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev python3 zip
 
-      - name: Compile P-Browser Binary
+      - name: Clean & Compile Binary
         run: |
           rm -rf build
           mkdir build && cd build
           cmake ..
           make -j4
 
-      - name: Package into PS5 PKG & ShadowMount Folder Layout
+      - name: Prepare ShadowMountPlus & Staging Directory
         run: |
-          # 1. Root structure for PKG / FPKG installer
-          mkdir -p ps5_pkg/sce_sys
-          cp build/eboot.bin ps5_pkg/eboot.bin
-          cp PPSA99080/sce_sys/param.json ps5_pkg/sce_sys/param.json
-          if [ -f "icon0.png" ]; then cp icon0.png ps5_pkg/sce_sys/icon0.png; fi
+          # Create ShadowMount structure for PPSA99080
+          mkdir -p output/PPSA99080/sce_sys
+          cp build/eboot.bin output/PPSA99080/eboot.bin
+          
+          if [ -f "PPSA99080/sce_sys/param.json" ]; then
+            cp PPSA99080/sce_sys/param.json output/PPSA99080/sce_sys/param.json
+          fi
+          
+          if [ -f "icon0.png" ]; then
+            cp icon0.png output/PPSA99080/sce_sys/icon0.png
+          fi
 
-          # Generate PKG output container
-          cd ps5_pkg
-          zip -r ../P-Browser-PPSA99080.pkg .
+          cd output
+          zip -r ../PPSA99080-ShadowMount-13.60.zip PPSA99080/
           cd ..
 
-          # 2. ShadowMountPlus Compatible Folder Structure (PPSA99080/)
-          mkdir -p ShadowMount_Output/PPSA99080/sce_sys
-          cp build/eboot.bin ShadowMount_Output/PPSA99080/eboot.bin
-          cp PPSA99080/sce_sys/param.json ShadowMount_Output/PPSA99080/sce_sys/param.json
-          if [ -f "icon0.png" ]; then cp icon0.png ShadowMount_Output/PPSA99080/sce_sys/icon0.png; fi
-
-          cd ShadowMount_Output
-          zip -r ../PPSA99080-ShadowMount.zip PPSA99080/
-          cd ..
-
-      - name: Upload PKG Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: P-Browser-PS5-13.60-PKG
-          path: P-Browser-PPSA99080.pkg
-
-      - name: Upload ShadowMountPlus Folder Artifact
+      - name: Upload ShadowMount Artifact
         uses: actions/upload-artifact@v4
         with:
           name: P-Browser-PS5-13.60-ShadowMount
-          path: PPSA99080-ShadowMount.zip
+          path: PPSA99080-ShadowMount-13.60.zip
