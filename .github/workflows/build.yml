@@ -9,10 +9,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Build Environment
+      - name: Setup Build Environment & Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libsdl2-dev python3
+          sudo apt-get install -y cmake build-essential libsdl2-dev libsdl2-image-dev
 
       - name: Compile P-Browser Binary
         run: |
@@ -20,19 +20,16 @@ jobs:
           cmake ..
           make -j4
 
-      - name: Package into PS5 FPKG
+      - name: Package into PS5 FPKG Structure
         run: |
-          # Create official PS5 package layout structure
           mkdir -p pkg_root/sce_sys
           cp build/eboot.bin pkg_root/eboot.bin
           cp PPSA99080/sce_sys/param.json pkg_root/sce_sys/param.json
           
-          # If you have an icon0.png in your repository root, copy it over
           if [ -f "icon0.png" ]; then
             cp icon0.png pkg_root/sce_sys/icon0.png
           fi
 
-          # Simulate FPKG archive bundling for ProsperoStore distribution
           cd pkg_root
           zip -r ../P-Browser-PS5-Installable.zip .
           cd ..
