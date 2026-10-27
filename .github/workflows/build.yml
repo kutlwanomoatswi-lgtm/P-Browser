@@ -16,6 +16,7 @@ jobs:
 
       - name: Compile P-Browser Binary
         run: |
+          rm -rf build
           mkdir build && cd build
           cmake ..
           make -j4
