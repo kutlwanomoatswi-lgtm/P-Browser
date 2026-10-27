@@ -1,0 +1,44 @@
+name: Build PS5 P-Browser PKG
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libsdl2-dev python3
+
+      - name: Compile P-Browser Binary
+        run: |
+          mkdir build && cd build
+          cmake ..
+          make -j4
+
+      - name: Package into PS5 FPKG
+        run: |
+          # Create official PS5 package layout structure
+          mkdir -p pkg_root/sce_sys
+          cp build/eboot.bin pkg_root/eboot.bin
+          cp PPSA99080/sce_sys/param.json pkg_root/sce_sys/param.json
+          
+          # If you have an icon0.png in your repository root, copy it over
+          if [ -f "icon0.png" ]; then
+            cp icon0.png pkg_root/sce_sys/icon0.png
+          fi
+
+          # Simulate FPKG archive bundling for ProsperoStore distribution
+          cd pkg_root
+          zip -r ../P-Browser-PS5-Installable.zip .
+          cd ..
+
+      - name: Upload Final PKG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: P-Browser-PS5-Package
+          path: P-Browser-PS5-Installable.zip
