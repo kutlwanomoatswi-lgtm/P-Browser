@@ -3,7 +3,10 @@ project(PBrowser CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Include src directory so #include <imgui.h> and backend headers resolve correctly
 include_directories(src)
+
+# Automatically collect browser code AND ImGui source files in src/
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(eboot.bin ${SOURCES})
