@@ -2,11 +2,11 @@
 #include <imgui.h>
 #include <cstdio>
 
-void RenderPBrowserUI(BrowserState& state) {
+void RenderPSBrowserUI(BrowserState& state) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 
-    ImGui::Begin("P-Browser Window", nullptr,
+    ImGui::Begin("PSBrowser Window", nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
     // Navigation Controls Header
@@ -53,7 +53,7 @@ void RenderPBrowserUI(BrowserState& state) {
     ImGui::Separator();
     
     // Status Info Bar
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "[Engine] Software Blit | libcurl HTTPS | DualSense Active");
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "[PSBrowser Engine] Software Blit | libcurl HTTPS | DualSense Active");
     ImGui::SameLine();
     if (state.adblock_enabled) {
         ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "| Shield Active (%d blocked)", state.blocked_ads_count);

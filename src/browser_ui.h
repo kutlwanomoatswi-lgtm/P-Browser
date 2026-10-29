@@ -9,9 +9,9 @@ struct BrowserState {
     bool adblock_enabled = true;
     int blocked_ads_count = 0;
     bool is_loading = false;
-    std::string page_title = "P-Browser Web Node";
+    std::string page_title = "PSBrowser Web Node";
     std::string rendered_text_body = "";
     std::vector<std::string> parsed_links;
 };
 
-void RenderPBrowserUI(BrowserState& state);
+void RenderPSBrowserUI(BrowserState& state);

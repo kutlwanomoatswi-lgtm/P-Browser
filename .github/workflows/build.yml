@@ -1,4 +1,4 @@
-name: Build PS5 P-Browser
+name: Build PS5 PSBrowser
 
 on: [push]
 
@@ -12,7 +12,7 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential clang lld libsdl2-dev libsdl2-image-dev python3 zip git
+          sudo apt-get install -y cmake build-essential clang lld libsdl2-dev libsdl2-image-dev libcurl4-openssl-dev python3 zip git
 
       - name: Setup Open-Source PS5 Payload SDK
         run: |
@@ -50,5 +50,5 @@ jobs:
       - name: Upload ShadowMount Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: P-Browser-PS5-13.60-ShadowMount
+          name: PSBrowser-PS5-13.60-ShadowMount
           path: PPSA99080-ShadowMount-13.60.zip
