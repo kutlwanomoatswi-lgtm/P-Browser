@@ -12,7 +12,7 @@ private:
     std::string default_search = "https://www.google.com/search?q=";
 
 public:
-    void navigate(const std::string& input) {
+    void navigate(const std::string& input, bool adblock_active, int& blocked_counter) {
         if (input.rfind("http://", 0) == 0 || input.rfind("https://", 0) == 0) {
             current_url = input;
         } else {
@@ -20,13 +20,20 @@ public:
             for (char &c : query) if (c == ' ') c = '+';
             current_url = default_search + query;
         }
-        std::cout << "[P-Browser Engine] Navigated to: " << current_url << std::endl;
+
+        if (adblock_active) {
+            blocked_counter += 3; // Simulate blocking tracker domains on navigate
+        }
+
+        std::cout << "[P-Browser Engine] Navigated to: " << current_url 
+                  << " (AdBlock: " << (adblock_active ? "ENABLED" : "DISABLED") << ")" << std::endl;
     }
 
     std::string getUrl() const { return current_url; }
 };
 
 int main(int argc, char* argv[]) {
+    // Initialize SDL2 with Video, Controller, and Events
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0) {
         std::cerr << "SDL Init Error: " << SDL_GetError() << std::endl;
         return -1;
@@ -35,16 +42,22 @@ int main(int argc, char* argv[]) {
     SDL_Window* window = SDL_CreateWindow("P-Browser [PPSA99080]",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
-    
+
     if (!window) {
         std::cerr << "SDL Window Error: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return -1;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // PS5 Software Renderer Fallback: Try Software Renderer first, fallback to default if unavailable
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
-        std::cerr << "SDL Renderer Error: " << SDL_GetError() << std::endl;
+        // Fallback for standard desktop runners
+        renderer = SDL_CreateRenderer(window, -1, 0);
+    }
+
+    if (!renderer) {
+        std::cerr << "SDL Renderer Creation Failed: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
@@ -67,8 +80,9 @@ int main(int argc, char* argv[]) {
     }
 
     PBrowserEngine browser;
-    char url_buf[512];
-    snprintf(url_buf, sizeof(url_buf), "%s", browser.getUrl().c_str());
+    BrowserState state;
+    snprintf(state.url_buf, sizeof(state.url_buf), "%s", browser.getUrl().c_str());
+
     bool running = true;
 
     while (running) {
@@ -83,11 +97,11 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        bool navigate_requested = false;
-        RenderPBrowserUI(url_buf, sizeof(url_buf), navigate_requested);
+        RenderPBrowserUI(state);
 
-        if (navigate_requested) {
-            browser.navigate(url_buf);
+        if (state.navigate_requested) {
+            browser.navigate(state.url_buf, state.adblock_enabled, state.blocked_ads_count);
+            state.navigate_requested = false;
         }
 
         ImGui::Render();

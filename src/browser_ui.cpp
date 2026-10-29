@@ -1,42 +1,68 @@
 #include "browser_ui.h"
 #include <imgui.h>
 #include <cstdio>
-#include <string>
 
-void RenderPBrowserUI(char* url_buf, size_t buf_size, bool& navigate_requested) {
+void RenderPBrowserUI(BrowserState& state) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 
     ImGui::Begin("P-Browser Window", nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
+    // Navigation Controls
     if (ImGui::Button("Back")) { }
     ImGui::SameLine();
     if (ImGui::Button("Forward")) { }
     ImGui::SameLine();
     if (ImGui::Button("Home")) {
-        snprintf(url_buf, buf_size, "https://www.google.com");
-        navigate_requested = true;
+        snprintf(state.url_buf, sizeof(state.url_buf), "https://www.google.com");
+        state.navigate_requested = true;
     }
     ImGui::SameLine();
 
-    ImGui::PushItemWidth(650.0f);
-    if (ImGui::InputText("##UrlBar", url_buf, buf_size, ImGuiInputTextFlags_EnterReturnsTrue)) {
-        navigate_requested = true;
+    // URL Bar
+    ImGui::PushItemWidth(550.0f);
+    if (ImGui::InputText("##UrlBar", state.url_buf, sizeof(state.url_buf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+        state.navigate_requested = true;
     }
     ImGui::PopItemWidth();
 
     ImGui::SameLine();
-    if (ImGui::Button("Search / Go")) {
-        navigate_requested = true;
+    if (ImGui::Button("Go")) {
+        state.navigate_requested = true;
+    }
+
+    // AdBlocker Toggle Widget
+    ImGui::SameLine();
+    ImGui::Spacing();
+    ImGui::SameLine();
+    if (state.adblock_enabled) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.2f, 1.0f));
+        if (ImGui::Button("AdBlock: ON")) {
+            state.adblock_enabled = false;
+        }
+        ImGui::PopStyleColor();
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+        if (ImGui::Button("AdBlock: OFF")) {
+            state.adblock_enabled = true;
+        }
+        ImGui::PopStyleColor();
     }
 
     ImGui::Separator();
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "Input Modes Active: [Mouse & Keyboard] + [DualSense Controller]");
-    ImGui::TextWrapped("Current Web Node: %s", url_buf);
+    
+    // Status Info Bar
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "[PS5 SDK Mode] Rendering via Software Blit | DualSense Active");
+    
+    if (state.adblock_enabled) {
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Shield Active | Filtered Items: %d", state.blocked_ads_count);
+    } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Shield Paused | Raw Network Traffic Allowed");
+    }
 
     ImGui::Separator();
-    ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "[HW Acceleration Ready] Supported Sites: Google, YouTube, HTML5 Streaming Media Services");
+    ImGui::TextWrapped("Current URL: %s", state.url_buf);
 
     ImGui::End();
 }

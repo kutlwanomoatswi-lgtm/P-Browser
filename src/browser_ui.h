@@ -1,5 +1,11 @@
 #pragma once
-
 #include <cstddef>
 
-void RenderPBrowserUI(char* url_buf, size_t buf_size, bool& navigate_requested);
+struct BrowserState {
+    char url_buf[512] = "https://www.google.com";
+    bool navigate_requested = false;
+    bool adblock_enabled = true;
+    int blocked_ads_count = 0;
+};
+
+void RenderPBrowserUI(BrowserState& state);
