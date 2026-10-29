@@ -30,4 +30,10 @@ set(IMGUI_SOURCES
 add_executable(eboot.bin ${SOURCES} ${IMGUI_SOURCES})
 
 find_package(SDL2 REQUIRED)
-target_link_libraries(eboot.bin PRIVATE SDL2::SDL2)
+find_package(CURL REQUIRED)
+
+target_link_libraries(eboot.bin PRIVATE 
+    SDL2::SDL2
+    CURL::libcurl
+    pthread
+)
