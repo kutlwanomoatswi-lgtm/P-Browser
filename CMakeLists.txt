@@ -1,39 +1,37 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(PSBrowser CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/third_party/imgui")
+# PacBrew sysroot
+set(PACBREW_ROOT "${CMAKE_SOURCE_DIR}/.deps/pacbrew/target/user/homebrew")
 
 include_directories(
     src
-    ${IMGUI_DIR}
-    ${IMGUI_DIR}/backends
+    ${CMAKE_SOURCE_DIR}/third_party/imgui
+    ${CMAKE_SOURCE_DIR}/third_party/imgui/backends
+    ${PACBREW_ROOT}/include
 )
-
-if(PS5_SDK_PATH)
-    message(STATUS "Building with PS5 SDK at: ${PS5_SDK_PATH}")
-    include_directories(${PS5_SDK_PATH}/include)
-endif()
 
 file(GLOB SOURCES "src/*.cpp")
 
 set(IMGUI_SOURCES
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdlrenderer2.cpp
+    third_party/imgui/imgui.cpp
+    third_party/imgui/imgui_draw.cpp
+    third_party/imgui/imgui_tables.cpp
+    third_party/imgui/imgui_widgets.cpp
+    third_party/imgui/backends/imgui_impl_sdl2.cpp
+    third_party/imgui/backends/imgui_impl_sdlrenderer2.cpp
 )
 
-add_executable(eboot.bin ${SOURCES} ${IMGUI_SOURCES})
+add_executable(eboot.elf ${SOURCES} ${IMGUI_SOURCES})
 
-find_package(SDL2 REQUIRED)
-find_package(CURL REQUIRED)
-
-target_link_libraries(eboot.bin PRIVATE 
-    SDL2::SDL2
-    CURL::libcurl
-    pthread
+target_link_libraries(eboot.elf PRIVATE 
+    ${PACBREW_ROOT}/lib/libSDL2.a
+    ${PACBREW_ROOT}/lib/libSDL2_image.a
+    ${PACBREW_ROOT}/lib/libcurl.a
+    ${PACBREW_ROOT}/lib/libssl.a
+    ${PACBREW_ROOT}/lib/libcrypto.a
+    -lkernel
+    -lSceSystemService
 )

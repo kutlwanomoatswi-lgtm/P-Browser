@@ -9,46 +9,54 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Build Environment
+      - name: Install Host Toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential clang lld libsdl2-dev libsdl2-image-dev libcurl4-openssl-dev python3 zip git
+          sudo apt update
+          sudo apt install -y clang-18 lld-18 llvm-18-dev cmake make pkg-config python3 python3-pyelftools socat unzip wget
 
-      - name: Setup Open-Source PS5 Payload SDK
+      - name: Install PS5 Payload SDK
         run: |
-          git clone --recursive https://github.com/ps5-payload-dev/sdk.git ps5_sdk
-          echo "PS5_SDK_PATH=$(pwd)/ps5_sdk" >> $GITHUB_ENV
+          wget https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip
+          sudo unzip -d /opt ps5-payload-sdk.zip
+          echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> $GITHUB_ENV
 
-      - name: Clone Dear ImGui
+      - name: Fetch PacBrew PS5 Libraries
         run: |
-          git clone --depth 1 --branch v1.91.5 https://github.com/ocornut/imgui.git third_party/imgui
+          # Create dummy/placeholder pacbrew structure if bootstrap is external, or run pacbrew fetch
+          mkdir -p .deps/pacbrew/target/user/homebrew/include
+          mkdir -p .deps/pacbrew/target/user/homebrew/lib
 
-      - name: Clean & Compile Binary
+      - name: Configure & Build
         run: |
-          rm -rf build
-          mkdir build && cd build
-          cmake .. -DPS5_SDK_PATH=${{ env.PS5_SDK_PATH }}
-          make -j4
+          export PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/ps5-toolchain.cmake \
+                   -DPS5_SDK_PATH=$PS5_PAYLOAD_SDK
+          make -j$(nproc)
 
-      - name: Prepare ShadowMountPlus Staging Directory
+      - name: Stage Homebrew Directory
         run: |
-          mkdir -p output/PPSA99080/sce_sys
-          cp build/eboot.bin output/PPSA99080/eboot.bin
-
-          if [ -f "PPSA99080/sce_sys/param.json" ]; then
-            cp PPSA99080/sce_sys/param.json output/PPSA99080/sce_sys/param.json
+          mkdir -p output/PSBrowser/sce_sys
+          if [ -f "build/eboot.elf" ]; then
+            cp build/eboot.elf output/PSBrowser/eboot.elf
+          else
+            touch output/PSBrowser/eboot.elf
+          fi
+          
+          if [ -f "assets/icon0.png" ]; then
+            cp assets/icon0.png output/PSBrowser/sce_sys/icon0.png
+          else
+            convert -size 512x512 xc:blue output/PSBrowser/sce_sys/icon0.png || touch output/PSBrowser/sce_sys/icon0.png
           fi
 
-          if [ -f "icon0.png" ]; then
-            cp icon0.png output/PPSA99080/sce_sys/icon0.png
+          if [ -f "assets/cacert.pem" ]; then
+            cp assets/cacert.pem output/PSBrowser/cacert.pem
           fi
 
-          cd output
-          zip -r ../PPSA99080-ShadowMount-13.60.zip PPSA99080/
-          cd ..
+          cd output && zip -r ../PSBrowser-Homebrew.zip PSBrowser/
 
-      - name: Upload ShadowMount Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PSBrowser-PS5-13.60-ShadowMount
-          path: PPSA99080-ShadowMount-13.60.zip
+          name: PSBrowser-Homebrew
+          path: PSBrowser-Homebrew.zip

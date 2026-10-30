@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <regex>
+#include <future>
+#include <atomic>
 #include <curl/curl.h>
 #include <SDL2/SDL.h>
 #include <imgui.h>
@@ -20,12 +21,12 @@ class PSBrowserEngine {
 private:
     std::string default_search = "https://www.google.com/search?q=";
 
-    bool isAdDomain(const std::string& url) {
-        static const std::vector<std::string> ad_patterns = {
+    bool isFilteredDomain(const std::string& url) {
+        static const std::vector<std::string> blocked_patterns = {
             "doubleclick.net", "googlesyndication.com", "adservice", 
-            "telemetry", "analytics", "ads.", "/ads/", "popads.net"
+            "telemetry", "analytics"
         };
-        for (const auto& pattern : ad_patterns) {
+        for (const auto& pattern : blocked_patterns) {
             if (url.find(pattern) != std::string::npos) {
                 return true;
             }
@@ -33,27 +34,72 @@ private:
         return false;
     }
 
-    void parseHTML(const std::string& raw_html, std::string& out_text, std::vector<std::string>& out_links) {
+    // Bounded Linear HTML Parser & Title Extractor
+    void parseHTML(const std::string& raw, std::string& out_text, std::string& out_title, std::vector<std::string>& out_links) {
         out_text.clear();
+        out_title.clear();
         out_links.clear();
 
-        std::string cleaned = std::regex_replace(raw_html, std::regex("<script[\\s\\S]*?</script>", std::regex::icase), "");
-        cleaned = std::regex_replace(cleaned, std::regex("<style[\\s\\S]*?</style>", std::regex::icase), "");
+        size_t limit = std::min(raw.size(), size_t(8 * 1024 * 1024)); // 8 MB OOM cap
+        bool in_script = false;
+        bool in_style = false;
+        bool in_head = false;
+        bool in_title_tag = false;
+        std::string current_title_candidate = "";
 
-        std::smatch match;
-        std::regex link_regex("href=\"(https?://[^\"]+)\"", std::regex::icase);
-        std::string::const_iterator search_start(cleaned.cbegin());
-        while (std::regex_search(search_start, cleaned.cend(), match, link_regex)) {
-            if (out_links.size() < 15) {
-                out_links.push_back(match[1].str());
+        for (size_t i = 0; i < limit; ++i) {
+            if (raw[i] == '<') {
+                // Read tag name
+                size_t j = i + 1;
+                while (j < limit && raw[j] != '>' && !isspace(raw[j])) {
+                    j++;
+                }
+                std::string tag = raw.substr(i + 1, j - (i + 1));
+                // Convert tag to lowercase
+                for (auto& c : tag) c = tolower(c);
+
+                if (tag == "script") in_script = true;
+                else if (tag == "/script") in_script = false;
+                else if (tag == "style") in_style = true;
+                else if (tag == "/style") in_style = false;
+                else if (tag == "head") in_head = true;
+                else if (tag == "/head") in_head = false;
+                else if (tag == "title") in_title_tag = true;
+                else if (tag == "/title") in_title_tag = false;
+
+                // Extract href if tag is 'a'
+                if (tag == "a") {
+                    size_t href_pos = raw.find("href=\"", i);
+                    if (href_pos != std::string::npos && href_pos < j + 100) {
+                        size_t start_quote = href_pos + 6;
+                        size_t end_quote = raw.find("\"", start_quote);
+                        if (end_quote != std::string::npos) {
+                            std::string link = raw.substr(start_quote, end_quote - start_quote);
+                            if (out_links.size() < 15 && (link.rfind("http://", 0) == 0 || link.rfind("https://", 0) == 0)) {
+                                out_links.push_back(link);
+                            }
+                        }
+                    }
+                }
+
+                // Skip until '>'
+                while (i < limit && raw[i] != '>') {
+                    i++;
+                }
+            } else {
+                if (in_title_tag) {
+                    current_title_candidate += raw[i];
+                } else if (!in_script && !in_style && !in_head) {
+                    out_text += raw[i];
+                }
             }
-            search_start = match[0].second;
         }
 
-        std::string text_only = std::regex_replace(cleaned, std::regex("<[^>]*>"), " ");
-        text_only = std::regex_replace(text_only, std::regex("\\s+"), " ");
-        
-        out_text = text_only;
+        if (!current_title_candidate.empty()) {
+            out_title = current_title_candidate;
+        } else {
+            out_title = "Untitled Web Page";
+        }
     }
 
 public:
@@ -75,10 +121,10 @@ public:
             snprintf(state.url_buf, sizeof(state.url_buf), "%s", target_url.c_str());
         }
 
-        if (state.adblock_enabled && isAdDomain(target_url)) {
-            state.blocked_ads_count++;
-            state.page_title = "Blocked by PSBrowser Shield";
-            state.rendered_text_body = "Access to " + target_url + " was blocked by your active AdBlock rule.";
+        if (state.url_filter_enabled && isFilteredDomain(target_url)) {
+            state.filtered_count++;
+            state.page_title = "Blocked by PSBrowser Filter";
+            state.rendered_text_body = "Access to " + target_url + " was blocked by active URL filter rules.";
             return false;
         }
 
@@ -95,19 +141,31 @@ public:
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "PSBrowser/1.0 (PlayStation 5; PS5 Payload SDK)");
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_MAXFILESIZE, 8 * 1024 * 1024L); // 8 MB cap
+        curl_easy_setopt(curl, CURLOPT_CAINFO, "/data/homebrew/PSBrowser/cacert.pem");
 
         CURLcode res = curl_easy_perform(curl);
+
+        if (res == CURLE_OK) {
+            char* effective_url = nullptr;
+            curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective_url);
+            if (effective_url) {
+                snprintf(state.url_buf, sizeof(state.url_buf), "%s", effective_url);
+            }
+        }
+
         curl_easy_cleanup(curl);
 
         if (res != CURLE_OK) {
             state.page_title = "Network Error";
-            state.rendered_text_body = "Failed to fetch page. CURL Error: " + std::string(curl_easy_strerror(res));
+            state.rendered_text_body = "Failed to fetch page. CURL Error: " + std::string(curl_easy_strerror(res)) + 
+                                       "\n(Check if cacert.pem is present or use HTTP for unencrypted testing).";
             return false;
         }
 
-        state.page_title = "Page: " + target_url;
-        parseHTML(response_string, state.rendered_text_body, state.parsed_links);
+        std::string extracted_title;
+        parseHTML(response_string, state.rendered_text_body, extracted_title, state.parsed_links);
+        state.page_title = extracted_title;
         return true;
     }
 };
@@ -127,9 +185,10 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    // Renderer Selection with Fallback Logging
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
-        renderer = SDL_CreateRenderer(window, -1, 0);
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     }
 
     if (!renderer) {
@@ -137,6 +196,10 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }
+
+    SDL_RendererInfo info;
+    SDL_GetRendererInfo(renderer, &info);
+    fprintf(stderr, "[PSBrowser] Renderer: %s\n", info.name);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -157,6 +220,9 @@ int main(int argc, char* argv[]) {
     PSBrowserEngine browser;
     BrowserState state;
 
+    static std::future<bool> fetch_future;
+    static std::atomic<bool> fetch_running{false};
+
     bool running = true;
 
     while (running) {
@@ -167,21 +233,17 @@ int main(int argc, char* argv[]) {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) running = false;
         }
 
-        if (state.navigate_requested && !state.is_loading) {
-            state.is_loading = true;
+        // Handle Asynchronous Network Fetching
+        if (state.navigate_requested && !fetch_running) {
             state.navigate_requested = false;
-            
-            ImGui_ImplSDLRenderer2_NewFrame();
-            ImGui_ImplSDL2_NewFrame();
-            ImGui::NewFrame();
-            RenderPSBrowserUI(state);
-            ImGui::Render();
-            SDL_RenderClear(renderer);
-            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
-            SDL_RenderPresent(renderer);
-
-            browser.fetchPage(state);
-            state.is_loading = false;
+            state.is_loading = true;
+            fetch_running = true;
+            fetch_future = std::async(std::launch::async, [&browser, &state]() {
+                bool ok = browser.fetchPage(state);
+                state.is_loading = false;
+                fetch_running = false;
+                return ok;
+            });
         }
 
         ImGui_ImplSDLRenderer2_NewFrame();

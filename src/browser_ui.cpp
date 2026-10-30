@@ -9,7 +9,6 @@ void RenderPSBrowserUI(BrowserState& state) {
     ImGui::Begin("PSBrowser Window", nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    // Navigation Controls Header
     if (ImGui::Button("Back")) { }
     ImGui::SameLine();
     if (ImGui::Button("Forward")) { }
@@ -20,7 +19,6 @@ void RenderPSBrowserUI(BrowserState& state) {
     }
     ImGui::SameLine();
 
-    // URL Bar Input
     ImGui::PushItemWidth(500.0f);
     if (ImGui::InputText("##UrlBar", state.url_buf, sizeof(state.url_buf), ImGuiInputTextFlags_EnterReturnsTrue)) {
         state.navigate_requested = true;
@@ -32,42 +30,39 @@ void RenderPSBrowserUI(BrowserState& state) {
         if (!state.is_loading) state.navigate_requested = true;
     }
 
-    // AdBlocker Toggle
     ImGui::SameLine();
     ImGui::Spacing();
     ImGui::SameLine();
-    if (state.adblock_enabled) {
+    if (state.url_filter_enabled) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.2f, 1.0f));
-        if (ImGui::Button("AdBlock: ON")) {
-            state.adblock_enabled = false;
+        if (ImGui::Button("URL Filter: ON")) {
+            state.url_filter_enabled = false;
         }
         ImGui::PopStyleColor();
     } else {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
-        if (ImGui::Button("AdBlock: OFF")) {
-            state.adblock_enabled = true;
+        if (ImGui::Button("URL Filter: OFF")) {
+            state.url_filter_enabled = true;
         }
         ImGui::PopStyleColor();
     }
 
     ImGui::Separator();
     
-    // Status Info Bar
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "[PSBrowser Engine] Software Blit | libcurl HTTPS | DualSense Active");
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "[PSBrowser Engine] FreeBSD ELF | libcurl async | DualSense Active");
     ImGui::SameLine();
-    if (state.adblock_enabled) {
-        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "| Shield Active (%d blocked)", state.blocked_ads_count);
+    if (state.url_filter_enabled && state.filtered_count > 0) {
+        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "| Filtered Navigations: %d", state.filtered_count);
     } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "| Shield Paused");
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "| Filter Inactive");
     }
 
     ImGui::Separator();
 
-    // Web Page Display Canvas
     ImGui::BeginChild("WebRenderRegion", ImVec2(0, 0), true);
     
     if (state.is_loading) {
-        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Fetching network resource via libcurl...");
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Fetching network resource via background thread...");
     } else {
         ImGui::TextColored(ImVec4(1.0f, 0.84f, 0.0f, 1.0f), "%s", state.page_title.c_str());
         ImGui::Separator();
